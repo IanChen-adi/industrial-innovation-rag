@@ -1,0 +1,17 @@
+# Python
+.venv/
+__pycache__/
+*.pyc
+
+# Environment variables
+.env
+
+# Qdrant data
+qdrant_data/
+
+# IDE
+.vscode/
+.idea/
+
+# macOS
+.DS_Store
