@@ -18,3 +18,4 @@ qdrant_data/
 
 # Data files
 *.json
+!evaluation_questions.json

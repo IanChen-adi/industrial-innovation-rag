@@ -1,0 +1,174 @@
+[
+    {
+        "id": "P01",
+        "question": "研發投資抵減的申請條件有哪些?",
+        "expected_laws": [
+            "01_產創研發"
+        ],
+        "category": "precise"
+    },
+    {
+        "id": "P02",
+        "question": "我們公司有部署資安產品,能不能申請設備投資抵減?",
+        "expected_laws": [
+            "02_設備"
+        ],
+        "category": "precise"
+    },
+    {
+        "id": "P03",
+        "question": "我要申請高風險新創認定,後續流程怎麼走?",
+        "expected_laws": [
+            "03_個人投資新創減除",
+            "04_所得基本稅額高風險新創認定"
+        ],
+        "category": "precise"
+    },
+    {
+        "id": "P04",
+        "question": "我想用高風險新創省稅,但不知道要申請個人投資新創,還是所得基本稅額條例?",
+        "expected_laws": [
+            "03_個人投資新創減除",
+            "04_所得基本稅額高風險新創認定"
+        ],
+        "category": "precise"
+    },
+    {
+        "id": "P05",
+        "question": "我們是中小企業,研發投資抵減該申請哪個?可以同時申請嗎?",
+        "expected_laws": [
+            "05_中小企業研發",
+            "01_產創研發"
+        ],
+        "category": "precise"
+    },
+    {
+        "id": "P06",
+        "question": "我們公司今年虧損,還能申請研發投資抵減嗎?",
+        "expected_laws": [
+            "01_產創研發"
+        ],
+        "category": "precise"
+    },
+    {
+        "id": "P07",
+        "question": "我們公司符合產創條例的高風險新創,是不是所基稅那個也自動符合?",
+        "expected_laws": [
+            "03_個人投資新創減除",
+            "04_所得基本稅額高風險新創認定"
+        ],
+        "category": "precise"
+    },
+    {
+        "id": "C01",
+        "question": "我們公司今年花了一筆錢買 AI 軟體,聽說可以省稅,要怎麼處理?",
+        "expected_laws": [
+            "02_設備"
+        ],
+        "category": "colloquial"
+    },
+    {
+        "id": "C02",
+        "question": "我朋友投資了一家新創,聽他說可以從個人所得稅省下來,我也想試試,要怎麼做?",
+        "expected_laws": [
+            "03_個人投資新創減除"
+        ],
+        "category": "colloquial"
+    },
+    {
+        "id": "C03",
+        "question": "我們公司在做 AI 軟體開發,有沒有相關的租稅優惠?",
+        "expected_laws": [
+            "01_產創研發",
+            "02_設備"
+        ],
+        "category": "colloquial"
+    },
+    {
+        "id": "C04",
+        "question": "我們研發部門的主管雖然不是工程師,但平常負責管理研發計畫,他的薪水可以列入抵稅嗎?",
+        "expected_laws": [
+            "01_產創研發",
+            "05_中小企業研發"
+        ],
+        "category": "colloquial"
+    },
+    {
+        "id": "C05",
+        "question": "我要走一般認定還是專案認定?",
+        "expected_laws": [
+            "01_產創研發",
+            "05_中小企業研發"
+        ],
+        "category": "colloquial"
+    },
+    {
+        "id": "C06",
+        "question": "我們今年才剛成立,還沒賺錢,但花了不少錢開發產品,這些可以保留以後抵稅嗎?",
+        "expected_laws": [
+            "01_產創研發"
+        ],
+        "category": "colloquial"
+    },
+    {
+        "id": "C07",
+        "question": "聽說股東投資我們公司可以省稅,所以我要怎麼做?",
+        "expected_laws": [
+            "03_個人投資新創減除"
+        ],
+        "category": "colloquial"
+    },
+    {
+        "id": "D01",
+        "question": "我們公司可以申請什麼?",
+        "expected_laws": [
+            "01_產創研發",
+            "02_設備",
+            "03_個人投資新創減除",
+            "04_所得基本稅額高風險新創認定",
+            "05_中小企業研發"
+        ],
+        "category": "difficult"
+    },
+    {
+        "id": "D02",
+        "question": "有什麼條件?",
+        "expected_laws": [],
+        "category": "difficult"
+    },
+    {
+        "id": "D03",
+        "question": "高風險新創跟研發抵減差在哪?哪個比較划算?",
+        "expected_laws": [
+            "01_產創研發",
+            "03_個人投資新創減除",
+            "04_所得基本稅額高風險新創認定"
+        ],
+        "category": "difficult"
+    },
+    {
+        "id": "D04",
+        "question": "我們同時申請研發抵減跟設備抵減,會不會有什麼限制?",
+        "expected_laws": [
+            "01_產創研發",
+            "02_設備"
+        ],
+        "category": "difficult"
+    },
+    {
+        "id": "D05",
+        "question": "申請失敗了怎麼辦?",
+        "expected_laws": [],
+        "category": "difficult"
+    },
+    {
+        "id": "D06",
+        "question": "我們公司是中小企業,但有外國股東,還能申請各種優惠嗎?",
+        "expected_laws": [
+            "05_中小企業研發",
+            "01_產創研發",
+            "03_個人投資新創減除"
+        ],
+        "category": "difficult"
+    }
+]
