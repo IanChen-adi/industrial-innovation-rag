@@ -1,6 +1,7 @@
 import jieba
 from collections import Counter
 from qdrant_client.models import SparseVector
+import hashlib
 
 # 載入你的領域詞典（一次就好）
 jieba.load_userdict("custom_dict.txt")
@@ -26,7 +27,7 @@ def text_to_sparse(text: str) -> SparseVector:
     indices = []
     values = []
     for word, count in tf.items():
-        word_id = abs(hash(word)) % (2**31)   # 轉成 31 位元內的正整數
+        word_id =int(hashlib.md5(word.encode("utf-8")).hexdigest(), 16) % (2**31)   # 轉成 31 位元內的正整數
         indices.append(word_id)
         values.append(float(count))           # B1: 權重 = 詞頻
 
