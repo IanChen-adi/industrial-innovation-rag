@@ -1,16 +1,17 @@
 import json
+import os
 from dotenv import load_dotenv
 from openai import OpenAI
 from qdrant_client import QdrantClient
 from qdrant_client.models import (
     Distance, VectorParams, SparseVectorParams, PointStruct,
 )
-from sparse_utils import text_to_sparse   # 用我們修好的（deterministic）
+from sparse_utils import text_to_sparse   
 
 load_dotenv()
 openai_client = OpenAI()
-qdrant = QdrantClient(host="localhost", port=6333)
-
+qdrant= QdrantClient(url=os.getenv("QDRANT_URL", "http://localhost:6333"),
+                             api_key=os.getenv("QDRANT_API_KEY") or None)
 COLLECTION_NAME = "laws_hybrid"          # 新的雙向量 collection
 SOURCE_FILE = "all_chunks_flat.json"     # 從原始資料重算
 EMBEDDING_MODEL = "text-embedding-3-small"
