@@ -1,5 +1,5 @@
 openai
-qdrant-client
+qdrant-client==1.15.1
 python-dotenv
 jieba==0.42.1
 streamlit
