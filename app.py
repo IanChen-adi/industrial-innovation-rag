@@ -118,6 +118,14 @@ with st.sidebar:
             st.success(f"6333 端點:{[c.name for c in q2.get_collections().collections]}")
         except Exception:
             st.code(traceback.format_exc())
+    st.divider()
+    dbg_q = st.text_input("🔬 單題路由診斷(輸入問題,只看翻譯+前處理,不生成回答)")
+    if dbg_q:
+        from query_translator import translate_query
+        from preprocessor import preprocess
+        t = translate_query(dbg_q)
+        st.code(f"翻譯: {dbg_q} → {t}")
+        st.json(preprocess(t, []))
 
 # ---- 歷史訊息 ----
 for m in ss.display:
