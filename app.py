@@ -1,18 +1,23 @@
 """
 app.py — 租稅優惠法規 AI 問答|Beta 測試前端(Streamlit)
-執行:streamlit run app.py(或 python -m streamlit run app.py)
-通行碼:讀 .streamlit/secrets.toml 的 BETA_CODE
-落地:logs/beta_log.jsonl(每輪問答/回饋/意見各一筆,靠 turn_id 關聯)
+v4:log 落地改 Google Sheets(本地 JSONL 為備援)、診斷工具藏 ADMIN_CODE
+執行:python -m streamlit run app.py
 """
-import json
 import os
-import uuid
-from datetime import datetime, timezone, timedelta
-
 import streamlit as st
+
+# ---- Secrets → 環境變數橋接(必須在 import rag_core 之前)----
 for k in ("OPENAI_API_KEY", "QDRANT_URL", "QDRANT_API_KEY"):
     if k in st.secrets:
         os.environ[k] = st.secrets[k]
+
+import json
+import uuid
+from datetime import datetime, timezone, timedelta
+
+import gspread
+from google.oauth2.service_account import Credentials
+
 import rag_core
 
 TW = timezone(timedelta(hours=8))
@@ -34,14 +39,45 @@ h1, h2, h3 { font-family:"Noto Serif TC","PMingLiU",serif; color:var(--ink); }
 </style>
 """, unsafe_allow_html=True)
 
+# ---- 落地層:Google Sheets(主)+ 本地 JSONL(備援)----
+SHEET_COLS = ["t", "sid", "event", "turn_id", "role", "query", "translated",
+              "mode", "services", "confidence", "question_type", "chunks",
+              "answer", "thumbs", "note"]
+
+
+@st.cache_resource
+def _get_sheet():
+    creds = Credentials.from_service_account_info(
+        dict(st.secrets["gcp_service_account"]),
+        scopes=["https://www.googleapis.com/auth/spreadsheets"])
+    return gspread.authorize(creds).open_by_key(st.secrets["SHEET_ID"]).sheet1
+
 
 def log_row(row: dict):
-    with open(LOG_PATH, "a", encoding="utf-8") as f:
-        f.write(json.dumps(row, ensure_ascii=False) + "\n")
+    # 備援:本地 JSONL(雲端重啟會清空,但寫了不虧)
+    try:
+        with open(LOG_PATH, "a", encoding="utf-8") as f:
+            f.write(json.dumps(row, ensure_ascii=False) + "\n")
+    except Exception:
+        pass
+    # 主要落地:Google Sheets(失敗不擋使用者)
+    try:
+        pre = row.get("preprocess") or {}
+        flat = {**row,
+                "services": ",".join(pre.get("services", [])),
+                "confidence": pre.get("confidence", ""),
+                "question_type": pre.get("question_type", ""),
+                "chunks": " | ".join(f"{c.get('law_code','')} {c.get('article','')}"
+                                     for c in row.get("chunks", []))}
+        _get_sheet().append_row(
+            [str(flat.get(k, ""))[:4000] for k in SHEET_COLS],
+            value_input_option="RAW")
+    except Exception as e:
+        print(f"Sheets 寫入失敗(本地備援已存):{e}")
 
 
 def _log_note(turn_id):
-    """意見欄按 Enter 時觸發:單獨落地一筆 feedback_note(修正時序 bug)"""
+    """意見欄按 Enter 時觸發:單獨落地一筆 feedback_note"""
     note = st.session_state.get(f"note_{turn_id}", "").strip()
     if note:
         log_row({"t": datetime.now(TW).isoformat(),
@@ -69,8 +105,7 @@ if not ss.authed:
     st.write("")
     code = st.text_input("測試通行碼", type="password")
     role = st.radio("請選擇最符合您背景的身分(影響測試分析,不影響回答)",
-                    ["做過這項業務", "公務員(非本業務)", "一般人"],
-                    index=None)
+                    ["做過這項業務", "公務員(非本業務)", "一般人"], index=None)
     if st.button("進入測試", use_container_width=True):
         if code != st.secrets.get("BETA_CODE", "beta2026"):
             st.error("通行碼不正確。請向邀請你的人確認。")
@@ -92,40 +127,42 @@ st.markdown(f'<span class="badge">{ss.role}</span>'
 with st.sidebar:
     st.subheader("可以問什麼?")
     st.markdown("- 研發/設備投資抵減\n- 中小企業研發抵減\n- 個人投資新創減除\n"
-                "- 	所得基本稅額條例第十二條高風險新創事業公司認定辦法\n\n例:「研發投抵哪天前要交件?」\n「申請書要蓋什麼章?」")
+                "- 高風險新創認定\n\n例:「研發投抵哪天前要交件?」\n「申請書要蓋什麼章?」")
     if st.button("🔄 換個話題(清空對話)"):
         ss.history, ss.display = [], []
         st.rerun()
-    if st.button("🔧 連線診斷"):
-        import traceback
-        st.code(f"QDRANT_URL = {os.getenv('QDRANT_URL')!r}")
-        st.code(f"KEY 前8碼 = {(os.getenv('QDRANT_API_KEY') or '(空)')[:8]}")
-        try:
-            names = [c.name for c in rag_core.qdrant.get_collections().collections]
-            st.success(f"Qdrant 連線成功:{names}")
-        except Exception:
-            st.error("Qdrant 連線失敗,完整錯誤:")
-            st.code(traceback.format_exc())
-    if st.button("🔧 診斷2:強制 6333 對照"):
-        import traceback
-        from qdrant_client import QdrantClient as _QC
-        u = (os.getenv("QDRANT_URL") or "").rstrip("/")
-        if ":6333" not in u:
-            u += ":6333"
-        st.code(f"測試端點 = {u}")
-        try:
-            q2 = _QC(url=u, api_key=os.getenv("QDRANT_API_KEY"))
-            st.success(f"6333 端點:{[c.name for c in q2.get_collections().collections]}")
-        except Exception:
-            st.code(traceback.format_exc())
+
+    # ===== 開發者工具(需 ADMIN_CODE,測試者看不到)=====
     st.divider()
-    dbg_q = st.text_input("🔬 單題路由診斷(輸入問題,只看翻譯+前處理,不生成回答)")
-    if dbg_q:
-        from query_translator import translate_query
-        from preprocessor import preprocess
-        t = translate_query(dbg_q)
-        st.code(f"翻譯: {dbg_q} → {t}")
-        st.json(preprocess(t, []))
+    admin_code = st.text_input("⚙️", type="password",
+                               label_visibility="collapsed", placeholder="")
+    if admin_code and admin_code == st.secrets.get("ADMIN_CODE", ""):
+        st.caption("🛠 開發者工具")
+        if st.button("🔧 連線診斷"):
+            import traceback
+            st.code(f"QDRANT_URL = {os.getenv('QDRANT_URL')!r}")
+            try:
+                names = [c.name for c in rag_core.qdrant.get_collections().collections]
+                st.success(f"Qdrant 連線成功:{names}")
+            except Exception:
+                st.error("Qdrant 連線失敗:")
+                st.code(traceback.format_exc())
+        if st.button("📊 Sheets 落地測試"):
+            import traceback
+            try:
+                log_row({"t": datetime.now(TW).isoformat(), "sid": ss.session_id,
+                         "event": "sheets_test", "turn_id": "test",
+                         "note": "手動測試寫入"})
+                st.success("已嘗試寫入一筆 sheets_test,開表確認")
+            except Exception:
+                st.code(traceback.format_exc())
+        dbg_q = st.text_input("🔬 單題路由診斷(只看翻譯+前處理)")
+        if dbg_q:
+            from query_translator import translate_query
+            from preprocessor import preprocess
+            t = translate_query(dbg_q)
+            st.code(f"翻譯: {dbg_q} → {t}")
+            st.json(preprocess(t, []))
 
 # ---- 歷史訊息 ----
 for m in ss.display:
@@ -159,6 +196,8 @@ if q := st.chat_input("輸入你的問題…"):
             try:
                 res = rag_core.answer(q, ss.history)
             except Exception as e:
+                import traceback
+                print(traceback.format_exc())
                 res = {"mode": "error",
                        "text": f"系統暫時出了點問題,請再試一次。({type(e).__name__})",
                        "preprocess": {}, "chunks": [], "translated": q}
