@@ -106,6 +106,18 @@ with st.sidebar:
         except Exception:
             st.error("Qdrant 連線失敗,完整錯誤:")
             st.code(traceback.format_exc())
+    if st.button("🔧 診斷2:強制 6333 對照"):
+        import traceback
+        from qdrant_client import QdrantClient as _QC
+        u = (os.getenv("QDRANT_URL") or "").rstrip("/")
+        if ":6333" not in u:
+            u += ":6333"
+        st.code(f"測試端點 = {u}")
+        try:
+            q2 = _QC(url=u, api_key=os.getenv("QDRANT_API_KEY"))
+            st.success(f"6333 端點:{[c.name for c in q2.get_collections().collections]}")
+        except Exception:
+            st.code(traceback.format_exc())
 
 # ---- 歷史訊息 ----
 for m in ss.display:
