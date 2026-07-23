@@ -96,6 +96,16 @@ with st.sidebar:
     if st.button("🔄 換個話題(清空對話)"):
         ss.history, ss.display = [], []
         st.rerun()
+    if st.button("🔧 連線診斷"):
+        import traceback
+        st.code(f"QDRANT_URL = {os.getenv('QDRANT_URL')!r}")
+        st.code(f"KEY 前8碼 = {(os.getenv('QDRANT_API_KEY') or '(空)')[:8]}")
+        try:
+            names = [c.name for c in rag_core.qdrant.get_collections().collections]
+            st.success(f"Qdrant 連線成功:{names}")
+        except Exception:
+            st.error("Qdrant 連線失敗,完整錯誤:")
+            st.code(traceback.format_exc())
 
 # ---- 歷史訊息 ----
 for m in ss.display:
