@@ -19,6 +19,7 @@ qdrant_data/
 # Data files
 *.json
 !evaluation_questions.json
-!manual_chunks.json.streamlit/secrets.toml
+!manual_chunks.json
+.streamlit/secrets.toml
 logs/
-.env
+*.bak*
