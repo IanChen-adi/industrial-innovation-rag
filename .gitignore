@@ -23,3 +23,4 @@ qdrant_data/
 .streamlit/secrets.toml
 logs/
 *.bak*
+*.save
