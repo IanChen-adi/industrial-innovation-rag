@@ -1,6 +1,6 @@
 """
 app.py — 租稅優惠法規 AI 問答|Beta 測試前端(Streamlit)
-v4:log 落地改 Google Sheets(本地 JSONL 為備援)、診斷工具藏 ADMIN_CODE
+v5(內部試營運):公務帳號登入(@adi.gov.tw)、法規依據過濾、正式版文案
 執行:python -m streamlit run app.py
 """
 import os
@@ -22,9 +22,10 @@ import rag_core
 
 TW = timezone(timedelta(hours=8))
 LOG_PATH = "logs/beta_log.jsonl"
+ALLOWED_DOMAIN = "@adi.gov.tw"
 os.makedirs("logs", exist_ok=True)
 
-st.set_page_config(page_title="租稅優惠法規 AI 問答|Beta", page_icon="🖍️",
+st.set_page_config(page_title="租稅優惠法規 AI 問答", page_icon="🖍️",
                    layout="centered")
 
 st.markdown("""
@@ -73,7 +74,7 @@ def log_row(row: dict):
             [str(flat.get(k, ""))[:4000] for k in SHEET_COLS],
             value_input_option="RAW")
     except Exception as e:
-        print(f"Sheets 寫入失敗(本地備援已存):{e}")
+        print(f"Sheets 寫入失敗(本地備援已存):{e}", flush=True)
 
 
 def _log_note(turn_id):
@@ -88,49 +89,53 @@ def _log_note(turn_id):
 
 # ---- Session 初始化 ----
 ss = st.session_state
-ss.setdefault("authed", False)
-ss.setdefault("role", None)
+ss.setdefault("entered", False)
 ss.setdefault("session_id", str(uuid.uuid4())[:8])
 ss.setdefault("history", [])      # LLM 用 [{"role","content"}]
 ss.setdefault("display", [])      # UI 用 [{"who","text","meta","turn_id"}]
 
-# ---- 入場:通行碼 + 身分 ----
-if not ss.authed:
+# ---- 第一關:公務帳號登入 ----
+if not st.user.is_logged_in:
     st.title("🖍️ 租稅優惠法規 AI 問答")
-    st.caption("Beta 測試版|個人研究專案")
-    st.markdown('<div class="disclaimer">本系統為<b>個人研究專案</b>之實驗工具,'
-                '非任何政府機關官方服務。回答由 AI 依法規資料生成,僅供參考,'
-                '實際申請請以主管機關正式規定與函釋為準。</div>',
+    st.caption("數位產業署|內部試營運")
+    st.markdown('<div class="disclaimer">本系統為<b>實驗性內部工具</b>。'
+                '回答由 AI 依法規資料生成,僅供同仁參考,'
+                '對外正式意見仍以主管機關規定與函釋為準。</div>',
                 unsafe_allow_html=True)
     st.write("")
-    code = st.text_input("測試通行碼", type="password")
-    role = st.radio("請選擇最符合您背景的身分(影響測試分析,不影響回答)",
-                    ["做過這項業務", "公務員(非本業務)", "一般人"], index=None)
-    if st.button("進入測試", use_container_width=True):
-        if code != st.secrets.get("BETA_CODE", "beta2026"):
-            st.error("通行碼不正確。請向邀請你的人確認。")
-        elif role is None:
-            st.warning("請先選擇身分。")
-        else:
-            ss.authed, ss.role = True, role
-            log_row({"t": datetime.now(TW).isoformat(), "sid": ss.session_id,
-                     "event": "enter", "role": role})
-            st.rerun()
+    st.button("🔐 使用公務帳號登入(@adi.gov.tw)",
+              use_container_width=True, on_click=st.login)
     st.stop()
+
+# ---- 第二關:網域檢查 ----
+user_email = (st.user.email or "").lower()
+if not user_email.endswith(ALLOWED_DOMAIN):
+    st.error(f"本系統僅限數位產業署公務帳號({ALLOWED_DOMAIN})使用。\n\n"
+             f"目前登入:{user_email}")
+    st.button("登出並更換帳號", on_click=st.logout)
+    st.stop()
+
+# ---- 進場紀錄(每 session 一次)----
+if not ss.get("entered"):
+    ss.entered = True
+    log_row({"t": datetime.now(TW).isoformat(), "sid": ss.session_id,
+             "event": "enter", "role": user_email})
 
 # ---- 主畫面 ----
 st.title("🖍️ 租稅優惠法規 AI 問答")
-st.markdown(f'<span class="badge">{ss.role}</span>'
-            '<span style="font-size:.8rem;color:#8a94a0">回答僅供參考,'
+st.markdown('<span style="font-size:.8rem;color:#8a94a0">回答僅供參考,'
             '以主管機關正式規定為準</span>', unsafe_allow_html=True)
 
 with st.sidebar:
+    st.caption(f"👤 {user_email}")
     st.subheader("可以問什麼?")
     st.markdown("- 研發/設備投資抵減\n- 中小企業研發抵減\n- 個人投資新創減除\n"
                 "- 高風險新創認定\n\n例:「研發投抵哪天前要交件?」\n「申請書要蓋什麼章?」")
     if st.button("🔄 換個話題(清空對話)"):
         ss.history, ss.display = [], []
         st.rerun()
+    if st.button("登出"):
+        st.logout()
 
     # ===== 開發者工具(需 ADMIN_CODE,測試者看不到)=====
     st.divider()
@@ -147,14 +152,14 @@ with st.sidebar:
             except Exception:
                 st.error("Qdrant 連線失敗:")
                 st.code(traceback.format_exc())
-        if st.button("📊 Sheets 落地測試"):
+        if st.button("📊 Sheets 連線直測"):
             import traceback
             try:
-                log_row({"t": datetime.now(TW).isoformat(), "sid": ss.session_id,
-                         "event": "sheets_test", "turn_id": "test",
-                         "note": "手動測試寫入"})
-                st.success("已嘗試寫入一筆 sheets_test,開表確認")
+                sh = _get_sheet()
+                sh.append_row(["direct_test", datetime.now(TW).isoformat()] + [""] * 13)
+                st.success(f"寫入成功!表名={sh.title}")
             except Exception:
+                st.error("Sheets 連線失敗,完整錯誤:")
                 st.code(traceback.format_exc())
         dbg_q = st.text_input("🔬 單題路由診斷(只看翻譯+前處理)")
         if dbg_q:
@@ -169,9 +174,11 @@ for m in ss.display:
     with st.chat_message("user" if m["who"] == "user" else "assistant"):
         st.markdown(m["text"])
         if m["who"] == "assistant":
-            if m.get("meta", {}).get("chunks"):
-                with st.expander("📎 這則回答的依據(檢索到的條文)"):
-                    for c in m["meta"]["chunks"]:
+            law_chunks = [c for c in m.get("meta", {}).get("chunks", [])
+                          if c.get("source") and c["source"] != "作業手冊"]
+            if law_chunks:
+                with st.expander("📎 這則回答的法規依據"):
+                    for c in law_chunks:
                         st.markdown(f"**{c['source']} {c['article']}**"
                                     f"(相似度 {c['score']})\n\n{c['text'][:120]}…")
             fb = st.feedback("thumbs", key=f"fb_{m['turn_id']}")
@@ -211,7 +218,7 @@ if q := st.chat_input("輸入你的問題…"):
     ss.history.append({"role": "assistant", "content": res["text"]})
 
     log_row({"t": datetime.now(TW).isoformat(), "sid": ss.session_id,
-             "event": "qa", "turn_id": turn_id, "role": ss.role,
+             "event": "qa", "turn_id": turn_id, "role": user_email,
              "query": q, "translated": res.get("translated"),
              "mode": res["mode"], "preprocess": res.get("preprocess"),
              "chunks": [{k: c[k] for k in ("law_code", "article", "score")}
