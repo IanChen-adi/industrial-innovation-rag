@@ -9,13 +9,27 @@ v2 修正:
 - 新增領域術語規則(一般認定/專案認定、中小企業認定)
 """
 import json
+import os
 from openai import OpenAI
 from dotenv import load_dotenv
 
 load_dotenv()
-client = OpenAI()
 
-PREPROCESS_MODEL = "gpt-4o-mini"
+# ══ 第2刀開關:前處理判斷的供應商(預設 openai)══════════════
+#   切換:PREPROC_PROVIDER=gemini python xxx.py
+PREPROC_PROVIDER = os.getenv("PREPROC_PROVIDER", "openai")
+
+openai_client = OpenAI()
+gemini_client = OpenAI(
+    base_url="https://generativelanguage.googleapis.com/v1beta/openai/",
+    api_key=os.getenv("GEMINI_API_KEY"),
+)
+_CLIENTS = {"openai": openai_client, "gemini": gemini_client}
+_MODELS = {"openai": "gpt-4o-mini",
+           "gemini": "gemini-3.1-flash-lite"}   # 獨立額度池:15 RPM / 500 RPD
+
+client = _CLIENTS[PREPROC_PROVIDER]
+PREPROCESS_MODEL = _MODELS[PREPROC_PROVIDER]
 
 PREPROCESS_PROMPT = """你是「產業創新條例租稅優惠諮詢系統」的前處理判斷模組。
 你的任務:分析使用者的問題,輸出結構化 JSON 判斷結果。你不回答問題本身。
@@ -127,6 +141,7 @@ def preprocess(query: str, history: list = None) -> dict:
 
 # --- 自我測試 ---
 if __name__ == "__main__":
+    print(f"[前處理供應商] {PREPROC_PROVIDER} / {PREPROCESS_MODEL}\n")
     tests = [
         "我研發投資抵減哪一天以前要交件",
         "一般認定跟專案認定差在哪裡",          # 新術語規則:預期 high, [01]

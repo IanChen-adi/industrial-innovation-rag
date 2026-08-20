@@ -13,6 +13,11 @@ import os
 
 load_dotenv()
 openai_client = OpenAI()
+gemini_client = OpenAI(
+    base_url="https://generativelanguage.googleapis.com/v1beta/openai/",
+    api_key=os.getenv("GEMINI_API_KEY"),
+)
+ANSWER_MODEL = "gemini-3.5-flash-lite"     # 生成:15 RPM / 500 RPD
 qdrant = QdrantClient(
     url=os.getenv("QDRANT_URL", "http://localhost:6333"),
     api_key=os.getenv("QDRANT_API_KEY") or None,
@@ -171,7 +176,7 @@ def answer(question: str, history: list, top_k: int = 5) -> dict:
     if history:
         messages.extend(history[-6:])
     messages.append({"role": "user", "content": user_msg})
-    resp = openai_client.chat.completions.create(model=LLM_MODEL, messages=messages)
+    resp = gemini_client.chat.completions.create(model=ANSWER_MODEL, messages=messages)
 
     return {"mode": mode, "text": resp.choices[0].message.content,
             "translated": translated, "preprocess": pre,
@@ -185,5 +190,5 @@ def _clarify(question, candidate_services, history):
         messages.extend(history[-6:])
     messages.append({"role": "user",
                      "content": f"【使用者問題】{question}\n\n【候選服務】\n{candidates}"})
-    resp = openai_client.chat.completions.create(model=LLM_MODEL, messages=messages)
+    resp = gemini_client.chat.completions.create(model=ANSWER_MODEL, messages=messages)
     return resp.choices[0].message.content
