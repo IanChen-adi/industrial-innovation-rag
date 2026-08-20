@@ -2,6 +2,11 @@
 rag_core.py — RAG pipeline 邏輯層(無 UI)。
 chat_debug.py(終端機)與 app.py(Streamlit)共用此模組。
 流程:translate → preprocess → 分岔(文書/高信心/反問/範圍外)→ retrieve → answer
+
+供應商開關(環境變數,預設全 openai):
+  ANSWER_PROVIDER=openai|gemini   回答生成
+  EMBED_PROVIDER=openai|gemini    查詢向量(會連動 collection)
+  PREPROC_PROVIDER=openai|gemini  前處理判斷(見 preprocessor.py)
 """
 from dotenv import load_dotenv
 from openai import OpenAI
@@ -12,26 +17,50 @@ from preprocessor import preprocess
 import os
 
 load_dotenv()
+
+# ══ 供應商開關(對照實驗用;三刀各自獨立,可任意組合)════════════
+#   切換方式:.env 設定,或指令前綴 ANSWER_PROVIDER=openai python xxx.py
+#   雲端:Streamlit Secrets 設 ANSWER_PROVIDER = "gemini"
+ANSWER_PROVIDER = os.getenv("ANSWER_PROVIDER", "openai")   # 第1刀:回答生成
+EMBED_PROVIDER = os.getenv("EMBED_PROVIDER", "openai")     # 第3刀:向量(需配合 collection)
+# 第2刀(前處理判斷)開關在 preprocessor.py 的 PREPROC_PROVIDER
+
 openai_client = OpenAI()
 gemini_client = OpenAI(
     base_url="https://generativelanguage.googleapis.com/v1beta/openai/",
     api_key=os.getenv("GEMINI_API_KEY"),
 )
-ANSWER_MODEL = "gemini-3.5-flash-lite"     # 生成:15 RPM / 500 RPD
+CLIENTS = {"openai": openai_client, "gemini": gemini_client}
+
+MODELS = {
+    "openai": {"answer": "gpt-4o-mini", "embed": "text-embedding-3-small"},
+    "gemini": {"answer": "gemini-3.5-flash-lite",   # 15 RPM / 500 RPD
+               "embed": "gemini-embedding-001"},
+}
+# 第3刀:不同 embedding = 不同向量空間 → 各自的 collection(平行並存)
+COLLECTIONS = {
+    "openai": {"laws": "laws_hybrid", "manual": "hybrid_manual"},
+    "gemini": {"laws": "laws_hybrid_g", "manual": "hybrid_manual_g"},
+}
+
+
+def _answer_llm():
+    """回傳 (client, model):目前選定的『回答生成』供應商"""
+    return CLIENTS[ANSWER_PROVIDER], MODELS[ANSWER_PROVIDER]["answer"]
+
+
 qdrant = QdrantClient(
     url=os.getenv("QDRANT_URL", "http://localhost:6333"),
     api_key=os.getenv("QDRANT_API_KEY") or None,
 )
 
-COLLECTION = "laws_hybrid"
-MANUAL_COLLECTION = "hybrid_manual"
-LLM_MODEL = "gpt-4o-mini"
-EMBEDDING_MODEL = "text-embedding-3-small"
+COLLECTION = COLLECTIONS[EMBED_PROVIDER]["laws"]
+MANUAL_COLLECTION = COLLECTIONS[EMBED_PROVIDER]["manual"]
+EMBEDDING_MODEL = MODELS[EMBED_PROVIDER]["embed"]
 
-SYSTEM_PROMPT = """你是「產業創新條例租稅優惠 AI 問答」的助理。本系統為個人研究專案之實驗性工具,
-非政府機關官方服務。根據提供的【參考資料】回答使用者問題。
+SYSTEM_PROMPT = """你是「產業創新條例租稅優惠 AI 問答」的助理。根據提供的參考資料回答使用者問題。
 
-【回答結構】依序包含:
+【回答內容】依序包含:
 1. 引用最相關的依據:法規類問題引用法條(標明法規名稱與條號);
    文書實務類問題依據作業手冊，但是回答時不要標注作業手冊為參考來源，僅標注有關的法規。
    (如果依據是作業手冊，在回答時請不要標注手冊為參考來源)
@@ -88,7 +117,9 @@ SCOPE_TEXT = ("本系統涵蓋 5 項服務:研發投資抵減、中小企業研�
 
 
 def get_dense(text):
-    r = openai_client.embeddings.create(model=EMBEDDING_MODEL, input=text)
+    """查詢向量。用哪個供應商由 EMBED_PROVIDER 決定(須與 collection 一致)"""
+    client = CLIENTS[EMBED_PROVIDER]
+    r = client.embeddings.create(model=EMBEDDING_MODEL, input=text)
     return r.data[0].embedding
 
 
@@ -176,9 +207,18 @@ def answer(question: str, history: list, top_k: int = 5) -> dict:
     if history:
         messages.extend(history[-6:])
     messages.append({"role": "user", "content": user_msg})
-    resp = gemini_client.chat.completions.create(model=ANSWER_MODEL, messages=messages)
+    client, model = _answer_llm()
+    try:
+        resp = client.chat.completions.create(model=model, messages=messages)
+        answer_text = resp.choices[0].message.content
+    except Exception as e:
+        if "429" in str(e) or "RESOURCE_EXHAUSTED" in str(e):
+            answer_text = ("目前使用人數較多,系統稍微塞車了。\n"
+                           "請稍等 30 秒後再送出一次,你的問題不會消失。")
+        else:
+            raise
 
-    return {"mode": mode, "text": resp.choices[0].message.content,
+    return {"mode": mode, "text": answer_text,
             "translated": translated, "preprocess": pre,
             "chunks": _chunks_meta(chunks)}
 
@@ -190,5 +230,6 @@ def _clarify(question, candidate_services, history):
         messages.extend(history[-6:])
     messages.append({"role": "user",
                      "content": f"【使用者問題】{question}\n\n【候選服務】\n{candidates}"})
-    resp = gemini_client.chat.completions.create(model=ANSWER_MODEL, messages=messages)
+    client, model = _answer_llm()
+    resp = client.chat.completions.create(model=model, messages=messages)
     return resp.choices[0].message.content
