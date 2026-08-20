@@ -77,6 +77,27 @@ def log_row(row: dict):
         print(f"Sheets 寫入失敗(本地備援已存):{e}", flush=True)
 
 
+# ---- 免費額度使用量(依 Sheets 今日 qa 筆數推估)----
+#   每題呼叫:回答生成 ×1、問題判斷 ×1、語意向量 ×1(三個獨立額度池)
+QUOTA_POOLS = [
+    ("回答生成", 500, "gemini-3.5-flash-lite"),
+    ("問題判斷", 500, "gemini-3.1-flash-lite"),
+    ("語意向量", 1000, "gemini-embedding-001"),
+]
+
+
+@st.cache_data(ttl=180, show_spinner=False)
+def _today_qa_count():
+    """今日問答題數(每 3 分鐘更新一次,避免頻繁讀表)"""
+    try:
+        rows = _get_sheet().get_all_values()
+        today = datetime.now(TW).strftime("%Y-%m-%d")
+        return sum(1 for r in rows[1:]
+                   if len(r) > 2 and r[0].startswith(today) and r[2] == "qa")
+    except Exception:
+        return None
+
+
 def _log_note(turn_id):
     """意見欄按 Enter 時觸發:單獨落地一筆 feedback_note"""
     note = st.session_state.get(f"note_{turn_id}", "").strip()
@@ -130,44 +151,24 @@ with st.sidebar:
     st.caption(f"👤 {user_email}")
     st.subheader("可以問什麼?")
     st.markdown("- 研發/設備投資抵減\n- 中小企業研發抵減\n- 個人投資新創減除\n"
-                "- 高風險新創認定\n\n例:「研發投抵哪天前要交件?」\n「申請書要蓋什麼章?」")
+                "- 所得基本稅額條例高風險新創\n\n例:「研發投抵哪天前要交件?」\n「申請書要蓋什麼章?」")
     if st.button("🔄 換個話題(清空對話)"):
         ss.history, ss.display = [], []
         st.rerun()
     if st.button("登出"):
         st.logout()
 
-    # ===== 開發者工具(需 ADMIN_CODE,測試者看不到)=====
+    # ===== 今日免費額度 =====
     st.divider()
-    admin_code = st.text_input("⚙️", type="password",
-                               label_visibility="collapsed", placeholder="")
-    if admin_code and admin_code == st.secrets.get("ADMIN_CODE", ""):
-        st.caption("🛠 開發者工具")
-        if st.button("🔧 連線診斷"):
-            import traceback
-            st.code(f"QDRANT_URL = {os.getenv('QDRANT_URL')!r}")
-            try:
-                names = [c.name for c in rag_core.qdrant.get_collections().collections]
-                st.success(f"Qdrant 連線成功:{names}")
-            except Exception:
-                st.error("Qdrant 連線失敗:")
-                st.code(traceback.format_exc())
-        if st.button("📊 Sheets 連線直測"):
-            import traceback
-            try:
-                sh = _get_sheet()
-                sh.append_row(["direct_test", datetime.now(TW).isoformat()] + [""] * 13)
-                st.success(f"寫入成功!表名={sh.title}")
-            except Exception:
-                st.error("Sheets 連線失敗,完整錯誤:")
-                st.code(traceback.format_exc())
-        dbg_q = st.text_input("🔬 單題路由診斷(只看翻譯+前處理)")
-        if dbg_q:
-            from query_translator import translate_query
-            from preprocessor import preprocess
-            t = translate_query(dbg_q)
-            st.code(f"翻譯: {dbg_q} → {t}")
-            st.json(preprocess(t, []))
+    st.caption("📊 今日免費額度")
+    used = _today_qa_count()
+    if used is None:
+        st.caption("(暫時無法取得使用量)")
+    else:
+        for label, limit, model in QUOTA_POOLS:
+            pct = min(used / limit, 1.0)
+            st.progress(pct, text=f"{label} {used}/{limit}")
+        st.caption(f"今日已回答 {used} 題 · 每日 0 時(太平洋時間)重置")
 
 # ---- 歷史訊息 ----
 for m in ss.display:
