@@ -1,0 +1,10 @@
+# ADI 視覺語言（與 adi-portal/docs/design/tokens.css 同源）
+# primaryColor    = adi-deepblue（行動深藍）
+# backgroundColor = adi-bg（透氣淺底）
+# textColor       = adi-text
+[theme]
+primaryColor = "#1F4F7A"
+backgroundColor = "#F8FAFC"
+secondaryBackgroundColor = "#FFFFFF"
+textColor = "#334155"
+font = "sans serif"

@@ -28,17 +28,36 @@ os.makedirs("logs", exist_ok=True)
 st.set_page_config(page_title="租稅優惠法規 AI 問答", page_icon="🖍️",
                    layout="centered")
 
+# ── ADI 視覺語言（與 adi-portal/docs/design/tokens.css 同源）────────────────
 st.markdown("""
 <style>
-:root { --ink:#22303c; --archive:#35558A; --marker:#F5D76E; }
-.stApp { background:#F7F8F6; }
-h1, h2, h3 { font-family:"Noto Serif TC","PMingLiU",serif; color:var(--ink); }
+:root { --ink:#1F323D; --archive:#1F4F7A; --marker:#B4C43F;
+        --adi-bg:#F8FAFC; --adi-line:#E2E8F0; --adi-muted:#64748B; }
+html, body, [data-testid="stAppViewContainer"], [data-testid="stSidebar"],
+.stMarkdown, .stText, h1, h2, h3, h4, h5, h6, p, span, div, li, label,
+input, textarea, select, button {
+  font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,
+              "Noto Sans TC","PingFang TC","Microsoft JhengHei",sans-serif !important;
+}
+.stApp { background:var(--adi-bg); }
+h1 { color:var(--ink) !important; font-weight:800 !important; letter-spacing:-.01em; }
+h2, h3 { color:var(--ink) !important; font-weight:800 !important;
+         border-left:4px solid var(--marker); padding-left:.6rem; }
+.stButton > button, .stDownloadButton > button {
+  background:var(--ink); color:#fff; border:none; border-radius:12px;
+  font-weight:700; padding:.5rem 1.25rem;
+}
+.stButton > button:hover, .stDownloadButton > button:hover {
+  background:var(--archive); color:#fff; border:none;
+}
+[data-testid="stSidebar"] { background:#fff; border-right:1px solid var(--adi-line); }
 .disclaimer { background:#fff; border-left:4px solid var(--marker);
   padding:.6rem .9rem; font-size:.85rem; color:#5a6672; border-radius:0 6px 6px 0; }
 .badge { display:inline-block; background:var(--archive); color:#fff;
   font-size:.72rem; padding:.15rem .55rem; border-radius:999px; margin-right:.4rem; }
 </style>
 """, unsafe_allow_html=True)
+# ─────────────────────────────────────────────────────────────────────────
 
 # ---- 落地層:Google Sheets(主)+ 本地 JSONL(備援)----
 SHEET_COLS = ["t", "sid", "event", "turn_id", "role", "query", "translated",
@@ -117,7 +136,7 @@ ss.setdefault("display", [])      # UI 用 [{"who","text","meta","turn_id"}]
 
 # ---- 第一關:公務帳號登入 ----
 if not st.user.is_logged_in:
-    st.title("🖍️ 租稅優惠法規 AI 問答")
+    st.title("租稅優惠法規 AI 問答")
     st.caption("數位產業署|內部試營運")
     st.markdown('<div class="disclaimer">本系統為<b>實驗性內部工具</b>。'
                 '回答由 AI 依法規資料生成,僅供同仁參考,'
@@ -143,7 +162,7 @@ if not ss.get("entered"):
              "event": "enter", "role": user_email})
 
 # ---- 主畫面 ----
-st.title("🖍️ 租稅優惠法規 AI 問答")
+st.title("租稅優惠法規 AI 問答")
 st.markdown('<span style="font-size:.8rem;color:#8a94a0">回答僅供參考,'
             '以主管機關正式規定為準</span>', unsafe_allow_html=True)
 
