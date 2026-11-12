@@ -8,3 +8,11 @@ backgroundColor = "#F8FAFC"
 secondaryBackgroundColor = "#FFFFFF"
 textColor = "#334155"
 font = "sans serif"
+baseRadius = "12px"
+borderColor = "#E2E8F0"
+
+# 精簡工具列：隱藏 Deploy / 主選單等 Streamlit 品牌殘留
+[client]
+toolbarMode = "minimal"
+showErrorDetails = false
+showSidebarNavigation = false

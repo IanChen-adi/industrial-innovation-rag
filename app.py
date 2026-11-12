@@ -25,38 +25,131 @@ LOG_PATH = "logs/beta_log.jsonl"
 ALLOWED_DOMAIN = "@adi.gov.tw"
 os.makedirs("logs", exist_ok=True)
 
-st.set_page_config(page_title="租稅優惠法規 AI 問答", page_icon="🖍️",
-                   layout="centered")
+import base64
+import pathlib
+
+st.set_page_config(page_title="產創條例租稅優惠 AI 法規諮詢",
+                   page_icon="assets/adi_logo_symbol.png",
+                   layout="centered",
+                   initial_sidebar_state="expanded")
 
 # ── ADI 視覺語言（與 adi-portal/docs/design/tokens.css 同源）────────────────
 st.markdown("""
 <style>
-:root { --ink:#1F323D; --archive:#1F4F7A; --marker:#B4C43F;
-        --adi-bg:#F8FAFC; --adi-line:#E2E8F0; --adi-muted:#64748B; }
+:root{
+  --adi-navy:#1F323D; --adi-green:#B4C43F; --adi-deepblue:#1F4F7A; --adi-cyan:#47A2DB;
+  --adi-mint:#53B38C; --adi-coral:#C95A53; --adi-silver:#C9CACA;
+  --adi-bg:#F8FAFC; --adi-surface:#FFFFFF; --adi-line:#E2E8F0; --adi-line-soft:#F1F5F9;
+  --adi-text:#334155; --adi-text-2:#64748B; --adi-text-3:#94A3B8;
+  --adi-r-md:12px; --adi-r-lg:16px; --adi-r-full:999px;
+  --adi-shadow-sm:0 1px 3px rgba(31,50,61,.06);
+  --adi-shadow:0 4px 24px -2px rgba(31,50,61,.06),0 2px 8px -1px rgba(31,50,61,.04);
+  --adi-font:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Noto Sans TC",
+             "PingFang TC","Microsoft JhengHei",sans-serif;
+}
+
+/* 全域字型與底色 */
 html, body, [data-testid="stAppViewContainer"], [data-testid="stSidebar"],
-.stMarkdown, .stText, h1, h2, h3, h4, h5, h6, p, span, div, li, label,
-input, textarea, select, button {
-  font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,
-              "Noto Sans TC","PingFang TC","Microsoft JhengHei",sans-serif !important;
+.stMarkdown, .stText, h1,h2,h3,h4,h5,h6,p,span,div,li,label,input,textarea,select,button{
+  font-family:var(--adi-font) !important;
 }
-.stApp { background:var(--adi-bg); }
-h1 { color:var(--ink) !important; font-weight:800 !important; letter-spacing:-.01em; }
-h2, h3 { color:var(--ink) !important; font-weight:800 !important;
-         border-left:4px solid var(--marker); padding-left:.6rem; }
-.stButton > button, .stDownloadButton > button {
-  background:var(--ink); color:#fff; border:none; border-radius:12px;
-  font-weight:700; padding:.5rem 1.25rem;
+.stApp{ background:var(--adi-bg); }
+
+/* 隱藏 Streamlit 品牌殘留（保留側欄開合控制） */
+#MainMenu, footer, [data-testid="stToolbar"], [data-testid="stDecoration"],
+[data-testid="stStatusWidget"], .stDeployButton, [data-testid="stAppDeployButton"]{
+  display:none !important;
 }
-.stButton > button:hover, .stDownloadButton > button:hover {
-  background:var(--archive); color:#fff; border:none;
+header[data-testid="stHeader"]{ background:transparent !important; }
+[data-testid="stMainBlockContainer"], .block-container{
+  padding-top:.8rem !important; max-width:920px;
 }
-[data-testid="stSidebar"] { background:#fff; border-right:1px solid var(--adi-line); }
-.disclaimer { background:#fff; border-left:4px solid var(--marker);
-  padding:.6rem .9rem; font-size:.85rem; color:#5a6672; border-radius:0 6px 6px 0; }
-.badge { display:inline-block; background:var(--archive); color:#fff;
-  font-size:.72rem; padding:.15rem .55rem; border-radius:999px; margin-right:.4rem; }
+
+/* 標題 */
+h1{ color:var(--adi-navy)!important; font-weight:800!important;
+    letter-spacing:-.01em; font-size:1.6rem !important; }
+h2,h3{ color:var(--adi-navy)!important; font-weight:800!important;
+       border-left:4px solid var(--adi-green); padding-left:.6rem; }
+
+/* 品牌頁首 */
+.adi-brand{ display:flex; align-items:center; gap:14px; background:var(--adi-surface);
+  border:1px solid var(--adi-line); border-radius:var(--adi-r-lg); padding:14px 18px;
+  box-shadow:var(--adi-shadow); margin-bottom:4px; }
+.adi-brand img{ height:40px; width:auto; object-fit:contain; }
+.adi-brand .divider{ width:1.5px; height:32px; background:#CBD5E1; }
+.adi-brand .org{ font-size:12px; font-weight:600; color:var(--adi-text-2); letter-spacing:.02em; }
+.adi-brand .title{ font-size:19px; font-weight:800; color:var(--adi-navy);
+  letter-spacing:-.01em; display:flex; align-items:center; gap:10px; flex-wrap:wrap; }
+.adi-brand .ver{ font-size:11px; font-weight:700; padding:2px 10px; border-radius:var(--adi-r-full);
+  background:rgba(180,196,63,.2); color:var(--adi-navy); border:1px solid rgba(180,196,63,.5); }
+
+/* 卡片 */
+.adi-card{ background:var(--adi-surface); border:1px solid var(--adi-line);
+  border-radius:var(--adi-r-lg); box-shadow:var(--adi-shadow); padding:20px; }
+
+/* 按鈕 */
+.stButton>button, .stDownloadButton>button, [data-testid="stFormSubmitButton"]>button{
+  background:var(--adi-navy) !important; color:#fff !important; border:none !important;
+  border-radius:var(--adi-r-md) !important; font-weight:700 !important;
+  padding:.55rem 1.25rem !important; box-shadow:var(--adi-shadow-sm);
+  transition:background .2s, box-shadow .2s; }
+.stButton>button:hover, .stDownloadButton>button:hover{ background:var(--adi-deepblue) !important; }
+.stButton>button:focus{ box-shadow:0 0 0 3px rgba(180,196,63,.35) !important; }
+
+/* 輸入框 / 聊天輸入 */
+.stTextInput input, .stTextArea textarea{
+  border-radius:var(--adi-r-md) !important; border:1px solid #CBD5E1 !important; }
+[data-testid="stChatInput"]{ border-radius:var(--adi-r-lg) !important;
+  border:1px solid var(--adi-line) !important; background:var(--adi-surface) !important;
+  box-shadow:var(--adi-shadow); }
+
+/* 對話訊息 → 卡片感 */
+[data-testid="stChatMessage"]{ background:var(--adi-surface); border:1px solid var(--adi-line);
+  border-radius:var(--adi-r-lg); box-shadow:var(--adi-shadow-sm); padding:6px 4px; }
+
+/* 側欄 */
+[data-testid="stSidebar"]{ background:var(--adi-surface); border-right:1px solid var(--adi-line); }
+[data-testid="stSidebar"] .stButton>button{ width:100%; }
+
+/* 提示 / 標籤 */
+.disclaimer{ background:var(--adi-surface); border-left:4px solid var(--adi-green);
+  padding:.65rem .95rem; font-size:.86rem; color:#5a6672; border-radius:0 8px 8px 0;
+  box-shadow:var(--adi-shadow-sm); }
+.badge{ display:inline-block; background:var(--adi-deepblue); color:#fff;
+  font-size:.72rem; padding:.15rem .55rem; border-radius:var(--adi-r-full); margin-right:.4rem; }
+.adi-kicker{ font-size:11px; font-weight:800; letter-spacing:.13em;
+  text-transform:uppercase; color:var(--adi-text-3); }
+[data-testid="stExpander"]{ border:1px solid var(--adi-line) !important;
+  border-radius:var(--adi-r-md) !important; background:var(--adi-surface); }
+
+/* 響應式（手機） */
+@media (max-width:640px){
+  [data-testid="stMainBlockContainer"], .block-container{
+    padding-left:.85rem !important; padding-right:.85rem !important; padding-top:.5rem !important; }
+  .adi-brand{ padding:10px 12px; gap:10px; flex-wrap:wrap; }
+  .adi-brand img{ height:30px; }
+  .adi-brand .divider{ display:none; }
+  .adi-brand .title{ font-size:15px; }
+  .adi-brand .org{ font-size:11px; }
+  h1{ font-size:1.3rem !important; }
+  .adi-card{ padding:14px; }
+}
 </style>
 """, unsafe_allow_html=True)
+
+# ── 品牌頁首（與 adi-portal 一致：Logo + 署名 + 標題 + 版本 pill）──
+_LOGO = pathlib.Path(__file__).parent / "assets" / "adi_logo_symbol.png"
+_LOGO_B64 = base64.b64encode(_LOGO.read_bytes()).decode() if _LOGO.exists() else ""
+st.markdown(f'''
+<div class="adi-brand">
+  <img src="data:image/png;base64,{_LOGO_B64}" alt="ADI" />
+  <div class="divider"></div>
+  <div>
+    <div class="org">數位發展部 數位產業署</div>
+    <div class="title">產創條例租稅優惠 AI 法規諮詢<span class="ver">內部試營運</span></div>
+  </div>
+</div>
+''', unsafe_allow_html=True)
 # ─────────────────────────────────────────────────────────────────────────
 
 # ---- 落地層:Google Sheets(主)+ 本地 JSONL(備援)----
@@ -136,8 +229,6 @@ ss.setdefault("display", [])      # UI 用 [{"who","text","meta","turn_id"}]
 
 # ---- 第一關:公務帳號登入 ----
 if not st.user.is_logged_in:
-    st.title("租稅優惠法規 AI 問答")
-    st.caption("數位產業署|內部試營運")
     st.markdown('<div class="disclaimer">本系統為<b>實驗性內部工具</b>。'
                 '回答由 AI 依法規資料生成,僅供同仁參考,'
                 '對外正式意見仍以主管機關規定與函釋為準。</div>',
@@ -162,7 +253,7 @@ if not ss.get("entered"):
              "event": "enter", "role": user_email})
 
 # ---- 主畫面 ----
-st.title("租稅優惠法規 AI 問答")
+st.markdown('<div class="adi-kicker">AI 法規諮詢</div>', unsafe_allow_html=True)
 st.markdown('<span style="font-size:.8rem;color:#8a94a0">回答僅供參考,'
             '以主管機關正式規定為準</span>', unsafe_allow_html=True)
 
