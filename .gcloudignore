@@ -1,0 +1,18 @@
+# gcloud run deploy --source 上傳時排除（金鑰、本機資料、評估檔）
+.git
+.gitignore
+.venv/
+__pycache__/
+*.pyc
+.env
+.env.*
+.streamlit/
+qdrant_data/
+logs/
+*.json
+evaluate_*.py
+load_*.py
+pipeline_test.py
+chat_debug.py
+beta_health_check.py
+docker-compose.yml

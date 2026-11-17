@@ -1,0 +1,4 @@
+# RAG HTTP API（api.py，部署在 Cloud Run）的額外依賴；Streamlit Cloud 仍只讀 requirements.txt
+-r requirements.txt
+fastapi==0.115.12
+uvicorn[standard]==0.34.2

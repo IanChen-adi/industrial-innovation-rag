@@ -24,3 +24,6 @@ qdrant_data/
 logs/
 *.bak*
 *.save
+
+# RAG API 部署用環境變數（含金鑰）
+.env.api.yaml
