@@ -53,6 +53,11 @@ html, body, [data-testid="stAppViewContainer"], [data-testid="stSidebar"],
 .stMarkdown, .stText, h1,h2,h3,h4,h5,h6,p,span,div,li,label,input,textarea,select,button{
   font-family:var(--adi-font) !important;
 }
+/* Streamlit 的圖示（頭像、收合箭頭、讚/倒讚）是 Material Symbols 字型的連字，
+   必須保留原字型，否則會被上面的規則蓋掉而顯示成 face、thumb_up 等文字 */
+[data-testid="stIconMaterial"]{
+  font-family:"Material Symbols Rounded" !important;
+}
 .stApp{ background:var(--adi-bg); }
 
 /* 隱藏 Streamlit 品牌殘留（保留側欄開合控制） */
